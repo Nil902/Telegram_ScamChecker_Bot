@@ -1,0 +1,130 @@
+======================================================================
+KHMER STRING REVIEW
+Please mark any sentence that is wrong, unclear, or unnatural.
+The reader is an ordinary person with no computer training.
+======================================================================
+
+--- VERDICT LABELS ---
+
+  SAFE         🟢 សុវត្ថិភាព
+  SUSPICIOUS   🟡 គួរប្រយ័ត្ន
+  DANGEROUS    🔴 គ្រោះថ្នាក់
+
+--- NEXT STEPS ---
+
+  SAFE
+    EN: You can open this file.
+    KM: អ្នកអាចបើកឯកសារនេះបាន។
+
+  SUSPICIOUS
+    EN: Do not open this unless you are sure who sent it.
+    KM: កុំបើកឯកសារនេះ បើអ្នកមិនស្គាល់អ្នកផ្ញើច្បាស់លាស់។
+
+  DANGEROUS
+    EN: Do not open or install this file. Delete it.
+    KM: កុំបើក ឬដំឡើងឯកសារនេះ។ សូមលុបវាចោល។
+
+--- FINDING EXPLANATIONS ---
+
+  [FILENAME_RTL_OVERRIDE]
+    EN: The filename contains a hidden character that disguises the real file type.
+    KM: ឈ្មោះឯកសារនេះមានតួអក្សរលាក់ ដែលធ្វើឲ្យអ្នកមើលឃើញប្រភេទឯកសារខុសពីការពិត។
+
+  [FILENAME_DOUBLE_EXTENSION]
+    EN: The file looks like a document but is really a program.
+    KM: ឯកសារនេះមើលទៅដូចជាឯកសារធម្មតា ប៉ុន្តែតាមពិតវាជាកម្មវិធីដែលដំណើរការលើទូរស័ព្ទរបស់អ្នក។
+
+  [FILENAME_EXECUTABLE]
+    EN: This is an Android app installer. Banks in Cambodia never send their app through Telegram.
+    KM: នេះជាកម្មវិធីដំឡើងកម្មវិធី Android។ ធនាគារនៅកម្ពុជាមិនដែលផ្ញើកម្មវិធីរបស់ខ្លួនតាម Telegram ទេ។
+
+  [FILENAME_MACRO_ENABLED]
+    EN: This document can run hidden commands when opened.
+    KM: ឯកសារប្រភេទនេះអាចដំណើរការបញ្ជាលាក់កំបាំង នៅពេលអ្នកបើកវា។
+
+  [ARCHIVE_PASSWORD_IN_MESSAGE]
+    EN: The file is locked with a password from the message. This hides the contents from security scanners.
+    KM: ឯកសារនេះត្រូវបានចាក់សោដោយពាក្យសម្ងាត់ក្នុងសារ។ គេធ្វើដូច្នេះដើម្បីលាក់មាតិកាពីកម្មវិធីការពារ មិនមែនដើម្បីការពារអ្នកទេ។
+
+  [TYPE_DISGUISED_EXECUTABLE]
+    EN: This file is named like a document, but it is actually a program that runs on your device.
+    KM: ឯកសារនេះមានឈ្មោះដូចជាឯកសារធម្មតា ប៉ុន្តែតាមពិតវាជាកម្មវិធីដែលដំណើរការលើឧបករណ៍របស់អ្នក។
+
+  [TYPE_MISMATCH]
+    EN: The file's name and its real contents do not match.
+    KM: ឈ្មោះឯកសារនិងមាតិកាពិតរបស់វាមិនដូចគ្នាទេ។
+
+  [TYPE_HIDDEN_APK]
+    EN: This is an Android app installer disguised with a different file name.
+    KM: នេះជាកម្មវិធីដំឡើង Android ដែលត្រូវបានលាក់ដោយប្តូរឈ្មោះឯកសារ។
+
+  [APK_OTP_THEFT_SIGNATURE]
+    EN: This app can watch your screen and capture the code your bank sends. That is how money is stolen.
+    KM: កម្មវិធីនេះអាចមើលអេក្រង់របស់អ្នក និងអានលេខកូដដែលធនាគារផ្ញើមក។ នេះជារបៀបដែលគេលួចលុយពីគណនីរបស់អ្នក។
+
+  [APK_OVERLAY_ATTACK_SIGNATURE]
+    EN: This app can show a fake screen over your real bank app.
+    KM: កម្មវិធីនេះអាចបង្ហាញអេក្រង់ក្លែងក្លាយពីលើកម្មវិធីធនាគារពិតរបស់អ្នក។
+
+  [APK_REMOTE_ACCESS_TOOL]
+    EN: {name} is a real app, not a fake. But it lets another person see and control your phone from anywhere. If someone asked you to install it, especially someone claiming to be from your bank, the police, or a government office, this is a scam. Banks and government offices never ask you to install this.
+    KM: {name} ជាកម្មវិធីពិត មិនមែនក្លែងក្លាយទេ។ ប៉ុន្តែវាអនុញ្ញាតឲ្យអ្នកដទៃមើល និងបញ្ជាទូរស័ព្ទរបស់អ្នកពីចម្ងាយ។ បើមានអ្នកណាប្រាប់ឲ្យអ្នកដំឡើងវា ជាពិសេសអ្នកដែលអះអាងថាមកពីធនាគារ នគរបាល ឬរដ្ឋាភិបាល នោះជាការបោកប្រាស់។ ធនាគារ និងរដ្ឋាភិបាលមិនដែលសុំឲ្យអ្នកដំឡើងកម្មវិធីនេះទេ។
+
+  [APK_CLAIMS_REAL_PACKAGE]
+    EN: This app uses the official name of {bank}, but genuine bank apps are only in the Play Store, never Telegram.
+    KM: កម្មវិធីនេះប្រើឈ្មោះផ្លូវការរបស់ {bank} ប៉ុន្តែកម្មវិធីធនាគារពិតមានតែនៅក្នុង Play Store ប៉ុណ្ណោះ មិនមែននៅក្នុង Telegram ទេ។
+
+  [APK_PACKAGE_TYPOSQUAT]
+    EN: The app's internal name is almost identical to {bank}'s real app, but not the same. It is an imitation.
+    KM: ឈ្មោះខាងក្នុងរបស់កម្មវិធីនេះស្រដៀងនឹងកម្មវិធីពិតរបស់ {bank} ណាស់ ប៉ុន្តែមិនដូចគ្នាទេ។ វាជាកម្មវិធីក្លែងក្លាយ។
+
+  [APK_BRAND_IMPERSONATION]
+    EN: This app uses the name '{brand}' but is not the official app from that company.
+    KM: កម្មវិធីនេះប្រើឈ្មោះ '{brand}' ប៉ុន្តែវាមិនមែនជាកម្មវិធីផ្លូវការរបស់ក្រុមហ៊ុននោះទេ។
+
+  [APK_PERMISSION_BIND_ACCESSIBILITY_SERVICE]
+    EN: This app can see everything on your screen and tap buttons for you.
+    KM: កម្មវិធីនេះអាចមើលឃើញអ្វីៗទាំងអស់នៅលើអេក្រង់របស់អ្នក និងចុចប៊ូតុងជំនួសអ្នក។
+
+  [APK_PERMISSION_RECEIVE_SMS]
+    EN: This app can read the SMS messages you receive, including bank codes.
+    KM: កម្មវិធីនេះអាចអានសារ SMS ដែលអ្នកទទួល រួមទាំងលេខកូដពីធនាគារ។
+
+  [APK_PERMISSION_READ_SMS]
+    EN: This app can read the SMS messages saved on your phone.
+    KM: កម្មវិធីនេះអាចអានសារ SMS ដែលរក្សាទុកក្នុងទូរស័ព្ទរបស់អ្នក។
+
+  [APK_PERMISSION_SYSTEM_ALERT_WINDOW]
+    EN: This app can draw fake screens on top of your other apps.
+    KM: កម្មវិធីនេះអាចបង្ហាញអេក្រង់ក្លែងក្លាយពីលើកម្មវិធីផ្សេងទៀត។
+
+  [APK_PERMISSION_REQUEST_INSTALL_PACKAGES]
+    EN: This app can install more apps onto your phone.
+    KM: កម្មវិធីនេះអាចដំឡើងកម្មវិធីផ្សេងទៀតទៅក្នុងទូរស័ព្ទរបស់អ្នក។
+
+  [APK_PERMISSION_BIND_DEVICE_ADMIN]
+    EN: This app can stop you from uninstalling it.
+    KM: កម្មវិធីនេះអាចរារាំងអ្នកមិនឲ្យលុបវាចេញបាន។
+
+  [APK_PERMISSION_SEND_SMS]
+    EN: This app can send SMS messages that you will be charged for.
+    KM: កម្មវិធីនេះអាចផ្ញើសារ SMS ដែលអ្នកនឹងត្រូវបង់ប្រាក់។
+
+  [APK_PERMISSION_READ_CONTACTS]
+    EN: This app can read your contact list.
+    KM: កម្មវិធីនេះអាចអានបញ្ជីទំនាក់ទំនងរបស់អ្នក។
+
+  [APK_PERMISSION_CALL_PHONE]
+    EN: This app can make phone calls without asking you.
+    KM: កម្មវិធីនេះអាចហៅទូរស័ព្ទដោយមិនសួរអ្នក។
+
+  [APK_OLD_TARGET_SDK]
+    EN: This app is built for an old version of Android so it can avoid newer security protections.
+    KM: កម្មវិធីនេះត្រូវបានសាងសង់សម្រាប់ Android ជំនាន់ចាស់ ដើម្បីគេចពីការការពារសុវត្ថិភាពថ្មីៗ។
+
+  [APK_PARSE_FAILED]
+    EN: This file could not be read as a normal Android app, which is itself unusual.
+    KM: ឯកសារនេះមិនអាចអានជាកម្មវិធី Android ធម្មតាបានទេ ដែលជាការមិនប្រក្រតី។
+
+
+Total strings to review: 31

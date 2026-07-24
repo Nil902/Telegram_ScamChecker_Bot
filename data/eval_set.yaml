@@ -1,0 +1,317 @@
+# Labelled evaluation set for the scam-checker.
+#
+# Every label is the GROUND TRUTH — what a knowledgeable human says the honest
+# verdict is — NOT a copy of what the tool currently outputs. Where the two
+# differ, that difference is the finding: evaluate.py + analyze_logs.py measure
+# it. Labels use the system's three verdicts: SAFE, SUSPICIOUS, DANGEROUS.
+#
+# Each label below was chosen to match what the deterministic detectors in
+# links.py / rules.py / magic.py / apk.py actually key on, and the severity ->
+# verdict mapping in evidence.py (CRITICAL -> DANGEROUS; HIGH/MEDIUM ->
+# SUSPICIOUS; nothing -> SAFE). A few samples are deliberate KNOWN-LIMITATION
+# cases: real scams the link/file detectors cannot see (a pure-text lie with no
+# link, a bare bank phone-scam script). Those are labelled with their honest
+# human verdict so the evaluation reports them as missed, not hidden.
+#
+# Sample fields:
+#   id     : unique, stable identifier
+#   kind   : "text" | "file"
+#   label  : SAFE | SUSPICIOUS | DANGEROUS   (ground truth)
+#   note   : why this label; what a human sees
+#   text   : (text kind) the message to analyse
+#   filename / caption / path : (file kind) the file as received; `path` points
+#            at a real fixture so content inspection can run in --no-agent mode.
+#   limitation: true on samples the deterministic detectors are expected to
+#            miss — tracked separately, not counted as ordinary errors.
+
+samples:
+
+  # ============================================================= TEXT: scams
+  # --- brand-impersonation links (CRITICAL -> DANGEROUS) ---
+  - id: txt_aba_phish
+    kind: text
+    label: DANGEROUS
+    note: Host carries the ABA brand but is not the official domain.
+    text: "Your ABA account is locked. Verify now at https://aba-secure.xyz/login"
+
+  - id: txt_acleda_phish
+    kind: text
+    label: DANGEROUS
+    note: ACLEDA brand on a non-official host.
+    text: "ACLEDA security check required: acleda-online.com/verify"
+
+  - id: txt_wing_phish
+    kind: text
+    label: DANGEROUS
+    note: Wing brand on a lookalike host.
+    text: "Claim your Wing bonus here: wing-money.top/bonus"
+
+  - id: txt_canadia_phish
+    kind: text
+    label: DANGEROUS
+    note: Canadia brand on a non-official host.
+    text: "Canadia Bank: confirm your identity at canadia-bank-verify.xyz/login"
+
+  - id: txt_telegram_premium
+    kind: text
+    label: DANGEROUS
+    note: Telegram brand impersonation on a non-official host.
+    text: "Get FREE Telegram Premium now: telegram-premium.top/free"
+
+  - id: txt_facebook_lock
+    kind: text
+    label: DANGEROUS
+    note: Facebook brand impersonation on a suspicious TLD.
+    text: "Your Facebook will be closed. Verify at facebook-security.tk"
+
+  # --- reward / job lures + link (CRITICAL -> DANGEROUS) ---
+  - id: txt_prize_lure
+    kind: text
+    label: DANGEROUS
+    note: Two prize lures plus a link — the classic "claim your prize" scam.
+    text: "Congratulations! You have won a cash prize. Claim your prize now at winbig.info"
+
+  - id: txt_job_lure
+    kind: text
+    label: DANGEROUS
+    note: Order-grabbing part-time job scam with a link.
+    text: "Part-time work from home, daily income $200. No experience required. Register: joburgent.info/apply"
+
+  - id: txt_km_job_lure
+    kind: text
+    label: DANGEROUS
+    note: Khmer part-time / work-from-home lure with a link.
+    text: "ធ្វើការក្រៅម៉ោង ការងារពីផ្ទះ ចុះឈ្មោះ៖ khmerjob.info/reg"
+
+  # --- link obfuscation (HIGH -> SUSPICIOUS) ---
+  - id: txt_at_obfuscation
+    kind: text
+    label: SUSPICIOUS
+    note: userinfo '@' hides the real destination host.
+    text: "Secure login: http://ababank.com@evil-site.com/login"
+
+  - id: txt_ip_link
+    kind: text
+    label: SUSPICIOUS
+    note: Numeric address instead of a real site name.
+    text: "Update your details here: http://203.0.113.45/update"
+
+  - id: txt_punycode
+    kind: text
+    label: SUSPICIOUS
+    note: Punycode lookalike host.
+    text: "Verify your account: http://xn--80ak6aa92e.com/verify"
+
+  # --- weaker single signals (MEDIUM -> SUSPICIOUS) ---
+  - id: txt_shortener_bitly
+    kind: text
+    label: SUSPICIOUS
+    note: Shortener hides the real destination.
+    text: "Check this out: bit.ly/win2026"
+
+  - id: txt_shortener_bare_tinyurl
+    kind: text
+    label: SUSPICIOUS
+    note: Bare shortener with no scheme still hides its target.
+    text: "See the details tinyurl.com/abcd1234"
+
+  - id: txt_suspicious_tld
+    kind: text
+    label: SUSPICIOUS
+    note: Web-address ending commonly used for scams.
+    text: "Please review this document: http://document-share.tk/file"
+
+  # --- KNOWN LIMITATION: real scam with no link the detector can read ---
+  - id: txt_bank_otp_ask_nolink
+    kind: text
+    label: SUSPICIOUS
+    limitation: true
+    note: >
+      Real OTP-phishing script, but it carries no link and no lure phrase the
+      detector keys on, so the link analyser sees nothing. A human calls this a
+      scam. Expected to be MISSED (-> SAFE) — this is the honest limitation.
+    text: "This is ABA bank. To confirm your account, please tell me the 6-digit code we just sent to your phone."
+
+  # ============================================================ TEXT: benign
+  - id: txt_plain_chat
+    kind: text
+    label: SAFE
+    note: Ordinary message, no link.
+    text: "Hi, are we still meeting tomorrow at 3pm?"
+
+  - id: txt_official_aba
+    kind: text
+    label: SAFE
+    note: Mentions the REAL bank domain — must not be flagged.
+    text: "For details, see the official site ababank.com"
+
+  - id: txt_official_acleda_www
+    kind: text
+    label: SAFE
+    note: Real ACLEDA domain with www — must not be flagged.
+    text: "Our website is www.acledabank.com"
+
+  - id: txt_google_drive_subdomain
+    kind: text
+    label: SAFE
+    note: drive.google.com is an official Google subdomain — guard against a
+          brand-keyword false positive.
+    text: "The report is at https://drive.google.com/file/d/xyz/view"
+
+  - id: txt_facebook_official_sub
+    kind: text
+    label: SAFE
+    note: web.facebook.com is official — brand keyword must not fire.
+    text: "Log in to your account at https://web.facebook.com"
+
+  - id: txt_youtube
+    kind: text
+    label: SAFE
+    note: Ordinary well-known site, no brand match.
+    text: "Watch here: https://www.youtube.com/watch?v=abcd1234"
+
+  - id: txt_wikipedia
+    kind: text
+    label: SAFE
+    note: Ordinary informational link.
+    text: "Read more at https://en.wikipedia.org/wiki/Cambodia"
+
+  - id: txt_bbc_bare
+    kind: text
+    label: SAFE
+    note: Bare well-known domain, no brand/TLD signal.
+    text: "Check the news on bbc.com/news today"
+
+  - id: txt_single_free_word
+    kind: text
+    label: SAFE
+    note: One benign 'free' mention with a link — must not reach the 2-lure
+          threshold.
+    text: "The museum offers free entry on Sundays, details at phnompenh-museum.org"
+
+  - id: txt_congrats_no_link
+    kind: text
+    label: SAFE
+    note: Congratulations with no link and no full lure phrase.
+    text: "Congratulations on your graduation! So proud of you."
+
+  # ============================================================= FILE: scams
+  # --- filename rules alone are conclusive (CRITICAL -> DANGEROUS) ---
+  - id: file_apk_bankupdate
+    kind: file
+    label: DANGEROUS
+    note: An .apk sent over Telegram; banks never do this.
+    filename: "ABA_Mobile_Update.apk"
+    caption: "Install your bank app update"
+
+  - id: file_apk_plain
+    kind: file
+    label: DANGEROUS
+    note: Executable extension.
+    filename: "update.apk"
+
+  - id: file_double_ext_exe
+    kind: file
+    label: DANGEROUS
+    note: Double extension — looks like a PDF, is a program.
+    filename: "invoice.pdf.exe"
+
+  - id: file_double_ext_scr
+    kind: file
+    label: DANGEROUS
+    note: Double extension hiding a .scr program.
+    filename: "receipt.docx.scr"
+
+  - id: file_scr_plain
+    kind: file
+    label: DANGEROUS
+    note: Windows screensaver executable.
+    filename: "statement.scr"
+
+  - id: file_js_plain
+    kind: file
+    label: DANGEROUS
+    note: JavaScript program that runs on the device.
+    filename: "app.js"
+
+  - id: file_rtl_override
+    kind: file
+    label: DANGEROUS
+    note: Hidden right-to-left override disguises the real .apk extension.
+    filename: "photo‮gpj.apk"
+
+  - id: file_zip_password
+    kind: file
+    label: DANGEROUS
+    note: Locked archive with the password supplied in the message.
+    filename: "documents.zip"
+    caption: "password: 1234"
+
+  - id: file_rar_password
+    kind: file
+    label: DANGEROUS
+    note: Locked RAR with the password in the caption.
+    filename: "backup.rar"
+    caption: "pwd: secret123"
+
+  # --- content inspection needed (fixtures on disk) ---
+  - id: file_hidden_apk_jpg
+    kind: file
+    label: DANGEROUS
+    note: A .jpg whose real content is an Android app installer.
+    filename: "photo.jpg"
+    path: "fixtures/photo.jpg"
+
+  - id: file_disguised_exe_pdf
+    kind: file
+    label: DANGEROUS
+    note: A .pdf whose real content is a Windows program.
+    filename: "statement.pdf"
+    path: "fixtures/statement.pdf"
+
+  # --- macro doc: HIGH -> SUSPICIOUS ---
+  - id: file_macro_xlsm
+    kind: file
+    label: SUSPICIOUS
+    note: Macro-enabled spreadsheet can run hidden commands.
+    filename: "salary.xlsm"
+
+  # ============================================================ FILE: benign
+  - id: file_family_jpg
+    kind: file
+    label: SAFE
+    note: A genuine photo.
+    filename: "family.jpg"
+    path: "fixtures/family.jpg"
+
+  - id: file_real_pdf
+    kind: file
+    label: SAFE
+    note: A genuine PDF statement — content matches its name.
+    filename: "real_statement.pdf"
+    path: "fixtures/real_statement.pdf"
+
+  - id: file_report_docx
+    kind: file
+    label: SAFE
+    note: A genuine Word document.
+    filename: "report.docx"
+    path: "fixtures/report.docx"
+
+  - id: file_holiday_png
+    kind: file
+    label: SAFE
+    note: Ordinary image filename, nothing suspicious.
+    filename: "holiday.png"
+
+  - id: file_notes_txt
+    kind: file
+    label: SAFE
+    note: Plain text file.
+    filename: "shopping-list.txt"
+
+  - id: file_song_mp4
+    kind: file
+    label: SAFE
+    note: Ordinary video file.
+    filename: "song.mp4"

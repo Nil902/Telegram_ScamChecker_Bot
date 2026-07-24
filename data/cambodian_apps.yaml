@@ -1,0 +1,52 @@
+# Reference list of legitimate Cambodian financial-institution apps.
+# Used by apk.py to detect impersonation / typosquatting.
+#
+# - institutions[].packages: the REAL Play Store package names. An APK whose
+#   package equals one of these (arriving via Telegram) or is within a small
+#   edit distance (a typosquat) is flagged.
+# - brand_keywords: brand words that, if they appear in an app label/package
+#   of an otherwise-unknown app, indicate brand impersonation.
+# - institutions[].domains: the REAL websites. A link whose host ends in one
+#   of these is genuine; links.py uses them to avoid flagging the real sites.
+# - institutions[].hotline: the bank's official fraud/customer hotline, shown
+#   by the bot's /help flow to a user who was already scammed.
+#
+# ⚠️⚠️  HOTLINE NUMBERS BELOW REQUIRE VERIFICATION BEFORE DEPLOYMENT.  ⚠️⚠️
+#   Publishing a WRONG emergency number is worse than publishing none: a
+#   distressed victim calls it and loses more time. Confirm each number
+#   against the bank's own website/app before this bot goes live, and remove
+#   any you cannot confirm (an institution with no `hotline` field is simply
+#   omitted from /help).
+
+institutions:
+  - name: ABA Bank
+    packages:
+      - com.paygo24.ibank        # ABA Mobile
+    domains:
+      - ababank.com
+    hotline: "023 225 333"       # UNVERIFIED — confirm before deployment
+  - name: ACLEDA Bank
+    packages:
+      - com.acleda.mobile        # ACLEDA mobile / Unity
+    domains:
+      - acledabank.com
+    hotline: "023 994 444"       # UNVERIFIED — confirm before deployment
+  - name: Wing Bank
+    packages:
+      - com.wing.money           # Wing Money
+    domains:
+      - wingbank.com.kh
+    hotline: "023 999 989"       # UNVERIFIED — confirm before deployment
+  - name: Canadia Bank
+    packages:
+      - com.canadia.canadiapay
+    domains:
+      - canadiabank.com.kh
+    hotline: "023 868 222"       # UNVERIFIED — confirm before deployment
+
+brand_keywords:
+  - aba
+  - acleda
+  - wing
+  - canadia
+  - truemoney
