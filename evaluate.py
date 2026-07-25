@@ -135,9 +135,11 @@ def eval_file_noagent(sample: dict, label: str):
     # Content inspection only runs when the sample points at a real fixture.
     # Filename-only samples never touch the disk or the network.
     disk = (ROOT / rel) if rel else None
+    real_type = None
     if disk and disk.exists():
         tr = verify_file_type(str(disk), filename)
         evidence.record("verify_file_type", tr.findings)
+        real_type = tr.real_type
 
         ext = "." + filename.lower().rsplit(".", 1)[-1] if "." in filename else ""
         looks_android = (
@@ -147,6 +149,10 @@ def eval_file_noagent(sample: dict, label: str):
         if looks_android:
             apk = analyze_apk(str(disk))
             evidence.record("inspect_apk", apk.findings)
+
+    # Mirrors the live path in agent.py: distinguish "checked and clean"
+    # from "no rule covers this type" before deriving the verdict.
+    evidence.note_coverage(filename, real_type)
 
     result = grounded_verdict()
     _log(filename, result, "eval_file_noagent", label, t0)

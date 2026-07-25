@@ -17,6 +17,15 @@
 #   against the bank's own website/app before this bot goes live, and remove
 #   any you cannot confirm (an institution with no `hotline` field is simply
 #   omitted from /help).
+#
+# TODO(human) — BLOCKS DEPLOYMENT. Still outstanding as of 2026-07-25.
+#   Verify each `hotline` below against the institution's own website or app,
+#   then replace that line's "UNVERIFIED" comment with the date and source of
+#   confirmation. Delete any number that cannot be confirmed.
+#   Grep for "UNVERIFIED" to find every one still pending.
+#   Left deliberately for a human: these cannot be checked from inside the
+#   codebase, and a plausible-looking wrong number is exactly the failure
+#   mode this warning exists to prevent.
 
 institutions:
   - name: ABA Bank

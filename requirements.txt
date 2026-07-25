@@ -6,7 +6,7 @@ crewai==0.80.0                 # agent framework for the file-inspection path
 python-telegram-bot==22.8      # Telegram Bot API front-end
 python-dotenv==1.2.2           # load GEMINI_API_KEY / TELEGRAM_BOT_TOKEN from .env
 PyYAML==6.0.3                  # reference data + evaluation set (yaml.safe_load)
-httpx==0.28.1                  # streaming file downloads with a hard size cap
+httpx==0.28.1                  # streaming file downloads + VirusTotal API calls
 pyaxmlparser==0.3.31           # static AndroidManifest.xml parsing (no execution)
 
 # setuptools must stay <81: crewai 0.80.0 imports pkg_resources,

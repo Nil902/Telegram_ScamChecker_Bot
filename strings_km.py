@@ -46,6 +46,26 @@ NEXT_STEP_EN = {
 NO_DANGER_FOUND = "ខ្ញុំមិនបានរកឃើញអ្វីគ្រោះថ្នាក់ក្នុងឯកសារនេះទេ។"
 NO_DANGER_FOUND_EN = "I did not find anything dangerous in this file."
 
+# --- "checked nothing" is not the same as "checked and clean" -----------
+# Shown instead of the green SAFE label when the only thing we can say is
+# that no rule covers this file type. White, not green: the user must not
+# read absence of evidence as evidence of absence.
+
+VERDICT_LABEL_UNVERIFIED = "⚪ មិនអាចផ្ទៀងផ្ទាត់បាន"
+VERDICT_LABEL_UNVERIFIED_EN = "NOT FULLY CHECKED"
+
+# Header for the LLM-triage section. Deterministic findings are stated
+# flatly; anything under this header is explicitly marked as an unconfirmed
+# guess, so the two can never be mistaken for one another in the reply.
+LLM_SUGGESTED_HEADER = (
+    "🤖 ការសន្និដ្ឋានដោយកុំព្យូទ័រ (មិនទាន់បញ្ជាក់) / Computer guess (unconfirmed):"
+)
+
+NEXT_STEP_UNVERIFIED = "បើអ្នកមិនស្គាល់អ្នកផ្ញើច្បាស់លាស់ សូមកុំបើកវា។"
+NEXT_STEP_UNVERIFIED_EN = (
+    "Open it only if you are sure who sent it and you expected this file."
+)
+
 # --- one Khmer sentence per finding code --------------------------------
 # Templates may reference {placeholders} filled from Finding.params.
 
@@ -58,11 +78,57 @@ FINDING_KM: dict[str, str] = {
     "FILENAME_DOUBLE_EXTENSION":
         "ឯកសារនេះមើលទៅដូចជាឯកសារធម្មតា ប៉ុន្តែតាមពិតវាជាកម្មវិធីដែលដំណើរការលើទូរស័ព្ទរបស់អ្នក។",
 
+    # Deliberately generic. This one code covers .apk, .exe, .msi, .ps1 and
+    # the rest, so the wording must be true of all of them — an earlier
+    # version said "Android app installer" and told users receiving a Windows
+    # .msi about Android.
     "FILENAME_EXECUTABLE":
-        "នេះជាកម្មវិធីដំឡើងកម្មវិធី Android។ ធនាគារនៅកម្ពុជាមិនដែលផ្ញើកម្មវិធីរបស់ខ្លួនតាម Telegram ទេ។",
+        "ឯកសារនេះជាកម្មវិធីដែលដំណើរការលើឧបករណ៍របស់អ្នក។ ធនាគារ និងក្រុមហ៊ុននៅកម្ពុជាមិនដែលផ្ញើកម្មវិធីតាម Telegram ទេ។",
+
+    "FILENAME_SHORTCUT":
+        "ឯកសារនេះជាផ្លូវកាត់។ ពេលអ្នកបើកវា វានឹងដំណើរការកម្មវិធីមួយដែលអ្នកមើលមិនឃើញឈ្មោះ។",
+
+    "FILENAME_SYSTEM_MODIFIER":
+        "ឯកសារនេះកែប្រែការកំណត់ខាងក្នុងកុំព្យូទ័រ Windows។ ធនាគារ ឬក្រុមហ៊ុនដឹកជញ្ជូនមិនដែលផ្ញើឯកសារបែបនេះទេ។",
+
+    "FILENAME_DISK_IMAGE":
+        "នេះជារូបភាពថាស។ Windows បើកវាដូចជា USB ដែលធ្វើឲ្យអ្វីៗនៅខាងក្នុងរំលងការព្រមានសុវត្ថិភាពធម្មតា។",
 
     "FILENAME_MACRO_ENABLED":
         "ឯកសារប្រភេទនេះអាចដំណើរការបញ្ជាលាក់កំបាំង នៅពេលអ្នកបើកវា។",
+
+    # ---- virus database ----
+    "VT_KNOWN_MALWARE":
+        "កម្មវិធីស្កេនមេរោគចំនួន {detections} ក្នុងចំណោម {total} បានស្គាល់ឯកសារនេះថាជាកម្មវិធីព្យាបាទ។ សូមកុំបើកវាឡើយ។",
+
+    "VT_SUSPECTED_MALWARE":
+        "កម្មវិធីស្កេនមេរោគចំនួន {detections} ក្នុងចំណោម {total} បានដាស់តឿនអំពីឯកសារនេះ។ ចំនួននេះតិច ដូច្នេះវាអាចជាការភ័ន្តច្រឡំ ប៉ុន្តែសូមប្រុងប្រយ័ត្ន។",
+
+    "VT_SCAN_UNAVAILABLE":
+        "ខ្ញុំមិនអាចប្រៀបធៀបឯកសារនេះជាមួយបញ្ជីមេរោគដែលគេស្គាល់បានទេ ដូច្នេះវាមិនទាន់ត្រូវបានពិនិត្យពេញលេញឡើយ។",
+
+    # ---- LLM triage (unrecognised file types only; capped at MEDIUM) ----
+    # These are guesses, and the wording says so in every case. They are
+    # rendered under a separate header so a user can tell at a glance that
+    # this line is weaker evidence than the rest.
+    "LLM_SUGGESTED_INSTALLER":
+        "ឯកសារនេះមើលទៅដូចជាអាចដំឡើងកម្មវិធីលើឧបករណ៍របស់អ្នក ប៉ុន្តែខ្ញុំមិនអាចបញ្ជាក់ច្បាស់បានទេ។",
+
+    "LLM_SUGGESTED_SCRIPT":
+        "ឯកសារនេះហាក់ដូចជាមានបញ្ជាដែលកុំព្យូទ័រនឹងដំណើរការ ប៉ុន្តែខ្ញុំមិនអាចបញ្ជាក់ច្បាស់បានទេ។",
+
+    "LLM_SUGGESTED_CREDENTIAL_PROMPT":
+        "ឯកសារនេះនិយាយអំពីពាក្យសម្ងាត់ ឬការចូលគណនីធនាគារ ដែលមិនធម្មតាសម្រាប់ឯកសារផ្ញើតាម Telegram។",
+
+    "LLM_SUGGESTED_OBFUSCATED":
+        "មាតិកាឯកសារនេះមើលទៅដូចជាត្រូវបានធ្វើឲ្យច្របូកច្របល់ដោយចេតនា ដើម្បីលាក់អ្វីដែលវាធ្វើ។",
+
+    "LLM_SUGGESTED_NETWORK_BEACON":
+        "ឯកសារនេះមានអាសយដ្ឋានគេហទំព័រ ដែលវាអាចទាក់ទងដោយខ្លួនឯង។",
+
+    # ---- coverage ----
+    "UNKNOWN_FILE_TYPE":
+        "ខ្ញុំមិនបានឃើញសញ្ញាគ្រោះថ្នាក់ក្នុងឯកសារនេះទេ ប៉ុន្តែខ្ញុំមិនអាចពិនិត្យឯកសារប្រភេទនេះបានពេញលេញឡើយ។ សូមចាត់ទុកវាថាមិនទាន់ផ្ទៀងផ្ទាត់ មិនមែនថាមានសុវត្ថិភាពទេ។",
 
     "ARCHIVE_PASSWORD_IN_MESSAGE":
         "ឯកសារនេះត្រូវបានចាក់សោដោយពាក្យសម្ងាត់ក្នុងសារ។ គេធ្វើដូច្នេះដើម្បីលាក់មាតិកាពីកម្មវិធីការពារ មិនមែនដើម្បីការពារអ្នកទេ។",

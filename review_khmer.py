@@ -11,11 +11,27 @@ ENGLISH_SOURCE = {
     "FILENAME_DOUBLE_EXTENSION":
         "The file looks like a document but is really a program.",
     "FILENAME_EXECUTABLE":
-        "This is an Android app installer. Banks in Cambodia never send their app through Telegram.",
+        "This file is a program that runs on your device. Banks and companies in Cambodia never send programs through Telegram.",
+    "FILENAME_SHORTCUT":
+        "This file is a shortcut. Opening it silently starts a program you cannot see the name of.",
+    "FILENAME_SYSTEM_MODIFIER":
+        "This file changes settings deep inside a Windows computer. It is not something a bank or a delivery company would ever send you.",
+    "FILENAME_DISK_IMAGE":
+        "This is a disk image. Windows opens it like a USB stick, which lets whatever is inside skip the usual safety warning.",
     "FILENAME_MACRO_ENABLED":
         "This document can run hidden commands when opened.",
     "ARCHIVE_PASSWORD_IN_MESSAGE":
         "The file is locked with a password from the message. This hides the contents from security scanners.",
+    "VT_KNOWN_MALWARE":
+        "{detections} of {total} virus scanners recognise this exact file as harmful software.",
+    "VT_SUSPECTED_MALWARE":
+        "{detections} of {total} virus scanners flagged this file. That is a small number, so it may be "
+        "a false alarm, but be careful.",
+    "VT_SCAN_UNAVAILABLE":
+        "I could not compare this file against the database of known viruses, so it has not been fully checked.",
+    "UNKNOWN_FILE_TYPE":
+        "I found no known danger sign in this file, but I do not have a way to fully check this type of file. "
+        "Treat it as unverified rather than confirmed safe.",
     "TYPE_DISGUISED_EXECUTABLE":
         "This file is named like a document, but it is actually a program that runs on your device.",
     "TYPE_MISMATCH":

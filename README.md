@@ -17,7 +17,8 @@ remote-access apps used in phone scams, brand-impersonation links, and
 
 Every *finding* — every concrete reason a file or link might be a scam — is
 produced by **deterministic Python** (`links.py`, `rules.py`, `magic.py`,
-`apk.py`). Each finding carries a severity and a hand-written explanation.
+`apk.py`, `virustotal.py`). Each finding carries a severity and a hand-written
+explanation.
 
 The **verdict is a pure function of those findings** (`evidence.py`):
 
@@ -25,7 +26,23 @@ The **verdict is a pure function of those findings** (`evidence.py`):
 |--------------------------|-----------|
 | CRITICAL                 | 🔴 DANGEROUS |
 | HIGH or MEDIUM           | 🟡 SUSPICIOUS |
+| LOW only                 | ⚪ SAFE, shown as "not fully checked" |
 | nothing                  | 🟢 SAFE |
+
+### "Nothing found" is not the same as "nothing to find"
+
+Zero findings used to mean SAFE unconditionally, which conflated *we checked
+and it was clean* with *we had no rule for this file type*. A file could
+collect a green light purely because nothing was looking at it. When no
+extension rule, magic-byte signature or APK check covers a file,
+`evidence.note_coverage()` now records a LOW `UNKNOWN_FILE_TYPE` finding and
+the reply is labelled **"not fully checked"** rather than green. It is LOW by
+design: it changes the wording, never the severity arithmetic, and it is
+suppressed the moment any real finding exists.
+
+Filename rules also run **unconditionally**, before the agent starts. They
+previously ran only if the model chose to call the tool, which quietly made
+the model's tool-routing an input to the verdict.
 
 The language model (Gemini, via CrewAI) is used only on the **file path**, to
 decide *which cheap checks to run* and to phrase the reason in simple words. It
@@ -38,6 +55,26 @@ analyser can never hand out a green light.
 
 The **link/text path is fully deterministic** — no LLM at all — so it stays
 reliable regardless of model availability.
+
+### The one place a model may add a finding
+
+`triage.py` runs *only* when `UNKNOWN_FILE_TYPE` would otherwise fire — i.e.
+when every deterministic check came back empty and nothing understood the file
+type. It sees extracted metadata only (extension, header hex, size, printable
+strings), never raw bytes, and the prompt states explicitly that this content
+is untrusted data rather than instructions. Its findings:
+
+- use a distinct `LLM_SUGGESTED_*` prefix and render under a separate
+  "computer guess (unconfirmed)" header, never as the headline reason;
+- are **capped at MEDIUM**, so this path can reach 🟡 SUSPICIOUS at worst and
+  can never on its own produce 🔴 DANGEROUS;
+- are chosen from a fixed menu — a code outside it is discarded, and severity
+  and wording come from local tables, not from the model;
+- can only ever be *added*. Nothing here downgrades, suppresses or overrides a
+  deterministic finding.
+
+The tests in `test/test_triage.py` assume the model is **fully compromised** by
+prompt injection and assert the verdict is unchanged regardless.
 
 Nothing is ever executed and **no suspicious URL is ever fetched**. Every
 signal is derived by *parsing* — the URL string, the filename, the file's magic
@@ -82,7 +119,9 @@ Telegram message
 | `rules.py` | Filename rules → `FILENAME_*`, `ARCHIVE_*` findings |
 | `magic.py` | Magic-byte type check → `TYPE_*` findings (disguised files) |
 | `apk.py` | Static AndroidManifest parsing → `APK_*` findings |
-| `evidence.py` | Thread-local finding registry + severity→verdict derivation |
+| `virustotal.py` | SHA-256 lookup against VirusTotal → `VT_*` findings |
+| `triage.py` | LLM triage of *unrecognised* types only → `LLM_SUGGESTED_*` (capped MEDIUM) |
+| `evidence.py` | Thread-local finding registry + severity→verdict derivation + coverage (`UNKNOWN_FILE_TYPE`) |
 | `verdict.py` | Reconciles model output with evidence; grounded fallback |
 | `models.py` | `Finding`, `Severity`, result dataclasses |
 | `formatter.py` | Bilingual reply card + "what they will do next" section |
@@ -93,9 +132,9 @@ Telegram message
 | `evaluate.py` | Run the labelled evaluation set (offline or agent mode) |
 | `analyze_logs.py` | Accuracy / precision-recall-F1 / grounding report |
 | `review_khmer.py` | Dump every Khmer string for native-speaker review |
-| `data/eval_set.yaml` | 44 labelled samples (ground truth) |
+| `data/eval_set.yaml` | 56 labelled samples (ground truth) |
 | `test/` | Unit + integration tests |
-| `fixtures/` | Sample benign and disguised files |
+| `fixtures/` | Sample benign, disguised, and prompt-injection files |
 
 ---
 
@@ -114,12 +153,35 @@ Create a `.env` file in the project root:
 ```env
 TELEGRAM_BOT_TOKEN=your-bot-token-from-@BotFather
 GEMINI_API_KEY=your-gemini-api-key
+VIRUSTOTAL_API_KEY=your-virustotal-api-key
 ```
 
 - `TELEGRAM_BOT_TOKEN` — needed to run the bot.
 - `GEMINI_API_KEY` — needed only for the file-inspection (agent) path and for
   `evaluate.py` in agent mode. The link/text path and `evaluate.py --no-agent`
   need neither a key nor a network.
+- `VIRUSTOTAL_API_KEY` — enables the `scan_with_virustotal` tool, which
+  compares a downloaded file's SHA-256 against VirusTotal's database of known
+  malware. **Optional but strongly recommended**: without it every file scan
+  records a `VT_SCAN_UNAVAILABLE` finding and the reply is labelled "not fully
+  checked" rather than green. A free public API key is sufficient.
+
+#### Optional: `VIRUSTOTAL_ALLOW_UPLOAD`
+
+```env
+VIRUSTOTAL_ALLOW_UPLOAD=false      # default
+```
+
+Off by default, and it should usually stay off. When VirusTotal has never
+seen a file's hash, setting this to `true` makes the bot **upload the user's
+actual file** to VirusTotal, where it becomes downloadable by any paying
+VirusTotal customer. Users forward this bot bank statements, ID photos, and
+family pictures. Only enable it if you have a lawful basis to share user
+files with a third party and have told your users so.
+
+With it off, the bot still performs the hash lookup — that reveals nothing
+but a digest — and simply reports the file as unverified when the hash is
+unknown.
 
 ---
 

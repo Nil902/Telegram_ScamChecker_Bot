@@ -3,18 +3,47 @@ import unicodedata
 
 from models import Finding, Severity, FileCheckResult
 
-# Programs that run on the user's device. No Cambodian bank, telco, or
-# delivery company sends these over Telegram.
+# Programs that run on the user's device, directly, on a double-click. No
+# Cambodian bank, telco, or delivery company sends these over Telegram.
+#
+# .msi/.msp (Windows Installer packages and patches) sit here at CRITICAL
+# rather than in a milder tier: an installer can run arbitrary "custom
+# actions" with elevated rights during install, so it is every bit as
+# dangerous as a plain .exe. .cpl and .gadget are likewise executed by
+# double-click even though they are not named like programs.
 EXECUTABLE_EXT = {
-    ".apk", ".exe", ".scr", ".bat", ".cmd", ".com",
-    ".vbs", ".vbe", ".js", ".jse", ".msi", ".ps1", ".jar", ".hta",
+    ".apk", ".exe", ".scr", ".bat", ".cmd", ".com", ".pif",
+    ".vbs", ".vbe", ".js", ".jse", ".wsf", ".hta", ".ps1", ".jar",
+    ".msi", ".msix", ".msp", ".cpl", ".gadget",
 }
+
+# Files that are not programs themselves but silently launch one when
+# opened. A .lnk shortcut can point at powershell.exe with a full command
+# line; a .scf can trigger an outbound authentication attempt.
+SHORTCUT_EXT = {".lnk", ".scf"}
+
+# Files that change how the machine behaves rather than running on their
+# own. A .reg edits the Windows registry on double-click; a .dll needs a
+# loader, so it is a component of an attack rather than the whole of one.
+SYSTEM_MODIFIER_EXT = {".reg", ".dll"}
+
+# Disk images. Windows mounts these on double-click, and files inside a
+# mounted image do not inherit the "downloaded from the internet" mark that
+# would otherwise trigger a SmartScreen warning — a well-known way to smuggle
+# an executable past that prompt. Contents are unknown until inspected.
+DISK_IMAGE_EXT = {".iso", ".img"}
+
+# Every extension that makes a file risky on name alone. Used by the
+# double-extension rule, which must fire for "invoice.pdf.lnk" just as it
+# does for "invoice.pdf.exe".
+RISKY_EXT = EXECUTABLE_EXT | SHORTCUT_EXT | SYSTEM_MODIFIER_EXT | DISK_IMAGE_EXT
 
 # Office formats that can carry auto-executing macros.
 MACRO_EXT = {".xlsm", ".docm", ".pptm", ".xlsb", ".dotm", ".xltm"}
 
-# Containers — contents unknown until listed.
-ARCHIVE_EXT = {".zip", ".rar", ".7z", ".iso", ".img", ".tar", ".gz", ".cab"}
+# Containers — contents unknown until listed. Disk images are containers too,
+# so the password-protected-archive rule applies to them as well.
+ARCHIVE_EXT = {".zip", ".rar", ".7z", ".tar", ".gz", ".cab"} | DISK_IMAGE_EXT
 
 # Android app bundles (.apkm/.xapk/.apks). A ZIP wrapping base.apk plus split
 # parts. NOT conclusive on the name alone — a bundle can be perfectly
@@ -62,7 +91,7 @@ def check_filename(filename: str, message_text: str = "") -> FileCheckResult:
         result.conclusive = True
 
     # Rule 2 — double extension: invoice.pdf.exe
-    if len(exts) >= 2 and final_ext in EXECUTABLE_EXT and exts[-2] in SAFE_LOOKING_EXT:
+    if len(exts) >= 2 and final_ext in RISKY_EXT and exts[-2] in SAFE_LOOKING_EXT:
         result.findings.append(Finding(
             code="FILENAME_DOUBLE_EXTENSION",
             severity=Severity.CRITICAL,
@@ -85,6 +114,40 @@ def check_filename(filename: str, message_text: str = "") -> FileCheckResult:
             explanation=explanation,
         ))
         result.conclusive = True
+
+    # Rule 3b — shortcut that launches something else
+    if final_ext in SHORTCUT_EXT:
+        result.findings.append(Finding(
+            code="FILENAME_SHORTCUT",
+            severity=Severity.CRITICAL,
+            explanation=("This file is a shortcut. Opening it silently starts "
+                         "a program you cannot see the name of."),
+        ))
+        result.conclusive = True
+
+    # Rule 3c — changes system settings rather than running on its own.
+    # HIGH, not CRITICAL: a .dll cannot start by itself, so on its own it is
+    # a component of an attack rather than proof of one.
+    if final_ext in SYSTEM_MODIFIER_EXT:
+        result.findings.append(Finding(
+            code="FILENAME_SYSTEM_MODIFIER",
+            severity=Severity.HIGH,
+            explanation=("This file changes settings deep inside a Windows "
+                         "computer. It is not something a bank or a delivery "
+                         "company would ever send you."),
+        ))
+
+    # Rule 3d — disk image. MEDIUM: the image itself is inert, and .iso is a
+    # normal way to ship software, but it hides what is inside from the
+    # warning Windows would otherwise show. Contents must still be inspected.
+    if final_ext in DISK_IMAGE_EXT:
+        result.findings.append(Finding(
+            code="FILENAME_DISK_IMAGE",
+            severity=Severity.MEDIUM,
+            explanation=("This is a disk image. Windows opens it like a USB "
+                         "stick, which lets whatever is inside skip the usual "
+                         "safety warning."),
+        ))
 
     # Rule 4 — macro-enabled document
     if final_ext in MACRO_EXT:

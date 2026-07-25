@@ -48,11 +48,23 @@ DANGEROUS. (`evidence.py: derive_verdict`)
   agent.inspect_file()                        agent.inspect_text()
   (CrewAI agent + Gemini)                     (100% deterministic, no AI)
         │                                             │
-  AI chooses cheap tools in order:            links.analyze_text()
-   1 check_filename_rules  (name only)          parses each URL, no fetch
+  rules.check_filename() runs FIRST,          links.analyze_text()
+  unconditionally, before the agent —           parses each URL, no fetch
+  never gated on the AI's routing                    │
+        │                                             │
+  AI then chooses further tools:                     │
+   1 check_filename_rules  (name only)               │
    2 download_file         (only if needed)          │
    3 verify_file_type      (magic bytes)             │
    4 inspect_apk           (manifest)                │
+   5 scan_with_virustotal  (hash lookup)             │
+        │                                             │
+  evidence.note_coverage()                           │
+  → UNKNOWN_FILE_TYPE (LOW) if nothing fired         │
+    and no rule understood the type                  │
+        │                                             │
+  triage.triage()  ← ONLY if UNKNOWN_FILE_TYPE fired │
+  adds LLM_SUGGESTED_* findings, capped MEDIUM       │
         │                                             │
         └───────────────► evidence registry ◄────────┘
                        (code → Finding, per run)
@@ -73,6 +85,15 @@ DANGEROUS. (`evidence.py: derive_verdict`)
 system **fails closed** — it records an `ANALYSIS_FAILED` finding (HIGH) so a
 broken check can never come out SAFE. **Nothing is ever executed, and no
 suspicious link is ever opened** — every signal comes from *parsing*.
+
+**Corollary, learned the hard way:** *declining to look* is not the same as
+*looking and finding nothing*, and the AI must not be able to decide which of
+those happened. Filename rules used to run only when the model chose to call
+them; when it skipped the call, zero findings were recorded and zero findings
+derived to SAFE. An `.msi` was reported SAFE that way despite `.msi` having
+been a CRITICAL extension the whole time. Two changes close that class of bug:
+filename rules now run unconditionally, and `note_coverage()` makes an
+unexamined file say so out loud.
 
 ---
 
@@ -134,9 +155,40 @@ error.
 
 **`rules.py`** — filename rules (name only, no contents).
 - `check_filename()` — apply every rule: hidden RTL-override character, double
-  extension (`invoice.pdf.exe`), executable extension, macro-enabled Office
-  doc, password-locked archive with the password in the message.
+  extension (`invoice.pdf.exe`), executable extension, shortcut, system
+  modifier, disk image, macro-enabled Office doc, password-locked archive with
+  the password in the message.
 - `_extensions()` — list a filename's extensions in order.
+- Extension tiers, each with its own finding code and severity:
+
+  | Set | Code | Severity | Contents |
+  |-----|------|----------|----------|
+  | `EXECUTABLE_EXT` | `FILENAME_EXECUTABLE` | CRITICAL | `.apk .exe .scr .com .pif .bat .cmd .vbs .vbe .js .jse .wsf .hta .ps1 .jar .msi .msix .msp .cpl .gadget` |
+  | `SHORTCUT_EXT` | `FILENAME_SHORTCUT` | CRITICAL | `.lnk .scf` |
+  | `SYSTEM_MODIFIER_EXT` | `FILENAME_SYSTEM_MODIFIER` | HIGH | `.reg .dll` |
+  | `DISK_IMAGE_EXT` | `FILENAME_DISK_IMAGE` | MEDIUM | `.iso .img` |
+
+  `.msi`/`.msp`/`.msix` sit at CRITICAL with `.exe`, not in a milder tier: a
+  Windows Installer package runs arbitrary custom actions with elevated
+  rights at install time. `.dll` is HIGH because it needs a loader — it is a
+  component of an attack, not the whole of one. `.iso`/`.img` are MEDIUM:
+  inert themselves, but files opened from a mounted image skip the
+  "downloaded from the internet" warning.
+
+**`virustotal.py`** — SHA-256 lookup against VirusTotal. **Hash-first.**
+- `check_file()` — look the digest computed during download up via
+  `GET /files/{hash}`; map the engine detection count to a severity.
+- `extract_metadata`-free by design: only a hash leaves the process unless
+  `VIRUSTOTAL_ALLOW_UPLOAD` is explicitly enabled (default off — uploading
+  would send a user's private file to a third party).
+- Thresholds: 0 detections → no finding; 1–3 → `VT_SUSPECTED_MALWARE`
+  (MEDIUM); 4+ → `VT_KNOWN_MALWARE` (CRITICAL). Engines are not independent
+  and several are noisy on packed-but-legitimate installers, so a one- or
+  two-engine hit is not treated as proof.
+- Fails closed: a missing API key, timeout, rate limit, bad key, unknown hash
+  or HTTP error all record `VT_SCAN_UNAVAILABLE` (LOW). There is no code path
+  that returns silently, because silence becomes SAFE downstream.
+- `class VirusTotalResult` — findings + detection stats + skip reason.
 
 **`magic.py`** — magic-byte type check (catches disguised files).
 - `detect_type()` — identify a file family from its first bytes.
@@ -167,6 +219,34 @@ can be checked at once without mixing).
 - `tool_calls()` — which tools ran, in order.
 - `derive_verdict()` — the verdict from severity alone. **This is the rule.**
 - `_ensure()` — lazily initialise a fresh thread's registry.
+- `note_coverage()` — the "we checked" vs "we couldn't check" distinction.
+  Call once at the END of an analysis. Records a LOW `UNKNOWN_FILE_TYPE` when
+  nothing fired **and** no extension rule, magic-byte signature or APK check
+  understood the file. Returns immediately if any substantive finding exists,
+  so it can never outrank or mask a real warning.
+- `is_covered()` — does any deterministic check understand this file type?
+- `has_substantive_finding()` — is anything recorded beyond a
+  we-could-not-check note?
+- `UNVERIFIED_CODES` — `{UNKNOWN_FILE_TYPE, VT_SCAN_UNAVAILABLE}`. Findings
+  that describe a gap in *our checking* rather than a property of the file.
+  A reply whose entire content is one of these is labelled "not fully
+  checked" instead of green.
+
+**`triage.py`** — the single place a model may add a finding. Runs **only**
+when `UNKNOWN_FILE_TYPE` would otherwise fire.
+- `extract_metadata()` — bounded, sanitised summary of a file: extension,
+  hex-encoded header, size, printable strings (capped in count and length,
+  control characters stripped). Raw bytes never leave this function.
+- `build_prompt()` — fences the extracted content in an explicit
+  UNTRUSTED block and instructs the model to treat it as data, never
+  instructions.
+- `triage()` — asks the model which of `ALLOWED_CODES` the metadata supports.
+  Severity and wording come from local tables; the model's only influence is
+  which codes appear, and codes outside the menu are dropped.
+- `ALLOWED_CODES` — the fixed menu, every entry `LLM_SUGGESTED_*` and every
+  entry MEDIUM. This is the cap that stops this path ever reaching DANGEROUS.
+- On any error, returns `[]` — `UNKNOWN_FILE_TYPE` is already recorded, so
+  failure leaves the honest "not fully checked" answer rather than a green one.
 
 **`verdict.py`** — reconcile the AI's answer with the real evidence.
 - `finalise()` — parse the AI's JSON, discard any **fabricated** evidence codes,

@@ -13,6 +13,7 @@ from magic import verify_file_type as _verify_file_type
 from apk import analyze_apk as _analyze_apk
 from links import analyze_text as _analyze_links
 from download import download_to_temp, cleanup
+from virustotal import check_file as _vt_check_file
 
 log = logging.getLogger(__name__)
 
@@ -81,6 +82,20 @@ def _paths() -> list[str]:
     if not hasattr(_local, "downloaded"):
         _local.downloaded = []
     return _local.downloaded
+
+
+def _digests() -> dict[str, tuple[str, int]]:
+    """path -> (sha256, size), captured during download.
+
+    The VirusTotal tool reads the hash from here rather than accepting one
+    as an argument. If the agent supplied the hash, a prompt-injected
+    caption could make it look up the digest of some known-clean file and
+    return a spotless report for a piece of malware. The model chooses which
+    downloaded file to scan; it never chooses what that file's hash is.
+    """
+    if not hasattr(_local, "digests"):
+        _local.digests = {}
+    return _local.digests
 
 
 def _needs_download_response(tool_name: str, file_path: str) -> str | None:
@@ -171,6 +186,9 @@ def download_file(file_url: str, filename: str) -> str:
         return _record_failure("download_file", exc)
  
     _paths().append(path)
+    # Hash comes from the single streaming pass in download_to_temp — the
+    # file is never re-read to compute it.
+    _digests()[path] = (sha256, size)
     evidence.record("download_file", [])   # no findings, but log the call
     return json.dumps({
         "file_path": path,
@@ -205,8 +223,24 @@ def verify_file_type_tool(file_path: str, filename: str) -> str:
         result = _verify_file_type(file_path, filename)
     except Exception as exc:
         return _record_failure("verify_file_type", exc)
+    # Remember what the bytes actually were. A magic-byte read that
+    # identified the contents counts as real coverage even when the
+    # extension is one we have no rule for, so the caller can avoid
+    # raising UNKNOWN_FILE_TYPE over a file it genuinely did inspect.
+    _local.real_type = result.real_type
     evidence.record("verify_file_type", result.findings)
     return json.dumps(result.to_dict(), indent=2)
+
+
+def last_real_type() -> str | None:
+    """The content type magic-byte inspection found this run, if it ran."""
+    return getattr(_local, "real_type", None)
+
+
+def last_download_path() -> str | None:
+    """The most recent file fetched this run, or None if nothing was."""
+    paths = _paths()
+    return paths[-1] if paths else None
  
  
 @tool("inspect_apk")
@@ -268,9 +302,49 @@ def inspect_links(message_text: str) -> str:
     return json.dumps(result.to_dict(), indent=2)
 
 
+@tool("scan_with_virustotal")
+def scan_with_virustotal(file_path: str) -> str:
+    """Compare a downloaded file against a database of known viruses.
+
+    Use this after download_file for any file you had to download. It checks
+    whether this exact file has already been identified as harmful by
+    commercial virus scanners. It is the only tool that can recognise a
+    brand-new threat whose name and shape look ordinary.
+
+    A result of 'known_to_virustotal: false' does NOT mean the file is safe.
+    Most ordinary files are unknown. It only means nothing has vouched for it.
+
+    Args:
+        file_path: Path returned by download_file. Not a URL.
+
+    Returns:
+        JSON with 'known_to_virustotal', 'detection_stats' and 'findings'.
+    """
+    guard = _needs_download_response("scan_with_virustotal", file_path)
+    if guard is not None:
+        return guard
+
+    sha256, size = _digests().get(file_path, ("", 0))
+    if not sha256:
+        return _record_failure(
+            "scan_with_virustotal",
+            RuntimeError("no hash recorded for this file"),
+        )
+
+    try:
+        result = _vt_check_file(sha256, size, file_path)
+    except Exception as exc:
+        return _record_failure("scan_with_virustotal", exc)
+
+    evidence.record("scan_with_virustotal", result.findings)
+    return json.dumps(result.to_dict(), indent=2)
+
+
 def cleanup_downloads() -> None:
     """Delete everything fetched during one check, in this thread only."""
     paths = _paths()
     while paths:
         cleanup(paths.pop())
+    _digests().clear()
+    _local.real_type = None
  

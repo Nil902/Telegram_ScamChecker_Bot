@@ -9,6 +9,8 @@ import audit
 import evidence
 from links import analyze_text as _analyze_links
 from models import Finding, Severity
+from rules import check_filename
+from triage import extract_metadata, triage
 from verdict import finalise, grounded_verdict, FinalVerdict
 from tools import (
     check_filename_rules,
@@ -16,7 +18,10 @@ from tools import (
     verify_file_type_tool,
     inspect_apk,
     inspect_links,
+    scan_with_virustotal,
     cleanup_downloads,
+    last_real_type,
+    last_download_path,
 )
  
 load_dotenv()
@@ -56,7 +61,7 @@ file_inspector = Agent(
         "convincing to a frightened user."
     ),
     tools=[check_filename_rules, download_file, verify_file_type_tool,
-           inspect_apk, inspect_links],
+           inspect_apk, inspect_links, scan_with_virustotal],
     llm=llm,
     # verbose MUST stay False in production: CrewAI prints the full task
     # description to stdout, and that includes the Telegram file_url, which
@@ -89,6 +94,31 @@ RULES:
 """
  
  
+def _metadata_for_triage(filename: str, real_type: str | None) -> dict | None:
+    """Extract triage metadata, but only if triage could possibly apply.
+
+    Returns None unless BOTH hold: no deterministic tool found anything, and
+    nothing understood this file type. That mirrors exactly the condition
+    under which note_coverage() raises UNKNOWN_FILE_TYPE, so the LLM triage
+    path cannot run on a file a real rule already has an opinion about.
+
+    Must be called before cleanup_downloads() — it reads the temp file.
+    """
+    if evidence.has_substantive_finding():
+        return None
+    if evidence.is_covered(filename, real_type):
+        return None
+
+    path = last_download_path()
+    if not path or not os.path.exists(path):
+        return None
+    try:
+        return extract_metadata(path, filename)
+    except Exception:
+        log.exception("Could not extract triage metadata")
+        return None
+
+
 def inspect_file(filename: str,
                  message_text: str = "",
                  file_url: str = "",
@@ -108,7 +138,22 @@ def inspect_file(filename: str,
     """
     evidence.start_run()                       # reset registry per analysis
     started = time.monotonic()                 # monotonic: immune to clock changes
- 
+
+    # Filename rules run HERE, unconditionally, before the agent is given a
+    # chance to route anything.
+    #
+    # They used to run only if the LLM chose to call check_filename_rules.
+    # That made the model's tool-routing a silent input to the verdict: when
+    # it skipped the call, nothing was recorded, and zero findings derived to
+    # SAFE. A .msi handed out a green light that way despite .msi having been
+    # a CRITICAL extension the whole time. Declining to look is not the same
+    # as looking and finding nothing, and the model must not be able to
+    # decide which of those happened. The tool stays registered so the agent
+    # can still call it and reason about the output; record() is keyed by
+    # finding code, so a second call simply overwrites with the same values.
+    precheck = check_filename(filename, message_text)
+    evidence.record("check_filename_rules", precheck.findings)
+
     task = Task(
         description=(
             f"A Telegram user in Cambodia received a file and wants to know "
@@ -144,8 +189,20 @@ def inspect_file(filename: str,
         )])
         raw = ""      # no model JSON; finalise() uses grounded fallbacks
     finally:
+        # Read what we need off disk BEFORE the temp files are deleted.
+        real_type = last_real_type()
+        triage_metadata = _metadata_for_triage(filename, real_type)
         cleanup_downloads()   # always, even if the crew raises
- 
+
+    # Last word before the verdict is derived: if nothing fired AND nothing
+    # here understood this file type, say so rather than defaulting to green.
+    evidence.note_coverage(filename, real_type)
+
+    # Only now, with UNKNOWN_FILE_TYPE already recorded, may the model add
+    # anything of its own — and only ever by ADDING a capped-MEDIUM finding.
+    if triage_metadata and evidence.UNKNOWN_FILE_TYPE in evidence.all_findings():
+        evidence.record("llm_triage", triage(triage_metadata))
+
     result = finalise(raw)
     duration_ms = int((time.monotonic() - started) * 1000)
  
