@@ -196,9 +196,16 @@ Then message the bot on Telegram:
 - **Forward a file** → it checks the name, and downloads/inspects contents only
   if needed.
 - **Send a message with a link** → it checks the link (never opens it).
-- **`/help`** → calm, bilingual guidance for someone who has *already* been
-  scammed (call your bank now, keep evidence, report to police / Anti-Cyber
-  Crime Department). It never promises the money can be recovered.
+- **Send a message with no link** → a calm, bilingual nudge to send a file or a
+  link, instead of a curt refusal.
+- **`/start` or `/help`** → both show the same message: the greeting plus calm,
+  bilingual guidance for someone who has *already* been scammed (call your bank
+  now, keep evidence, report to police / Anti-Cyber Crime Department). It never
+  promises the money can be recovered.
+
+Any error a handler does not catch itself is caught by a global error handler,
+which logs it and replies "something went wrong" rather than leaving the user
+with silence.
 
 > ⚠️ **Before deployment:** the hotline numbers in `data/cambodian_apps.yaml`
 > and the reporting channel in `/help` are **placeholders marked UNVERIFIED**.

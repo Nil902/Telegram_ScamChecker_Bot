@@ -104,15 +104,22 @@ unexamined file say so out loud.
 **`bot.py`** — the Telegram bot. Receives messages, calls the analysers, sends
 back the reply.
 - `main()` — start the bot; register the `/start`, `/help`, document, and text
-  handlers; begin polling Telegram.
-- `start()` — reply to `/start` with the welcome message.
-- `help_command()` — reply to `/help` with victim-support guidance (for someone
-  already scammed).
+  handlers plus the global error handler; begin polling Telegram.
+- `start()` / `help_command()` — both reply with the same full message
+  (greeting + victim-support guidance), built by `_full_message()` so the two
+  commands can never drift apart. Every handler drops updates with no
+  `.message` (edited messages, channel posts) before touching it.
 - `handle_document()` — a file arrived: guard the 20 MB limit, get its Telegram
   URL, run `inspect_file` off the event loop, send the formatted reply.
-- `handle_text()` — a message arrived: if it has no link, say so; otherwise run
-  `inspect_text` and reply.
-- `_help_message()` — build the bilingual `/help` text (reassure → call bank →
+- `handle_text()` — a message arrived: if it has no link, reply with the
+  bilingual `NO_LINK_REPLY` guidance; otherwise run `inspect_text` and reply.
+- `on_error()` — last-resort handler for anything a handler did not catch
+  itself (a failing reply/edit, a library error). Logs the exception and
+  best-effort tells the user "something went wrong", guarded so a failing
+  notice cannot mask the original error.
+- `_full_message()` — the greeting (`START_INTRO`) followed by the recovery
+  help, shared by `/start` and `/help`.
+- `_help_message()` — build the bilingual recovery text (reassure → call bank →
   keep evidence → report → no false promise).
 - `_hotline_lines()` — build the "• Bank: number" lines from the reference file
   (skips banks with no hotline).
