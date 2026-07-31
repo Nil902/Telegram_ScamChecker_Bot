@@ -66,6 +66,27 @@ NEXT_STEP_UNVERIFIED_EN = (
     "Open it only if you are sure who sent it and you expected this file."
 )
 
+# --- the analysis itself could not run --------------------------------------
+# The AI was rate-limited, timed out, or returned nothing. This is NOT a
+# judgement about the file — we simply could not check it — so the reply must
+# not read as "suspicious". It is still never green: the user is told to wait
+# and to not open the file until it has actually been checked.
+
+VERDICT_LABEL_UNAVAILABLE = "⏳ ពិនិត្យមិនទាន់បាន"
+VERDICT_LABEL_UNAVAILABLE_EN = "COULD NOT CHECK RIGHT NOW"
+
+SERVICE_UNAVAILABLE = (
+    "ខ្ញុំកំពុងជាប់រវល់ ហើយមិនអាចពិនិត្យឯកសារនេះឲ្យចប់បានទេ។ "
+    "សូមរង់ចាំមួយភ្លែត រួចផ្ញើវាមកម្ដងទៀត។"
+)
+SERVICE_UNAVAILABLE_EN = (
+    "I am busy right now and could not finish checking this. "
+    "Please wait a moment and send it to me again."
+)
+
+NEXT_STEP_UNAVAILABLE = "រហូតដល់ពិនិត្យរួច សូមកុំបើកឯកសារនេះ។"
+NEXT_STEP_UNAVAILABLE_EN = "Until it has been checked, do not open it."
+
 # --- one Khmer sentence per finding code --------------------------------
 # Templates may reference {placeholders} filled from Finding.params.
 

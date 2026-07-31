@@ -63,6 +63,42 @@ def test_full_card_renders():
     assert "─────────────" in card
 
 
+def test_service_failure_shows_try_again_not_be_careful():
+    """When the analysis could not RUN (rate-limit / empty AI response), the
+    reply must say 'could not check, try again' rather than the SUSPICIOUS
+    'Be careful' card, because the file was never actually judged."""
+    failed = Finding("ANALYSIS_FAILED", Severity.HIGH, "could not finish")
+    result = FinalVerdict(
+        verdict="SUSPICIOUS", reason="", next_step="",
+        evidence_codes=["ANALYSIS_FAILED", "VT_SCAN_UNAVAILABLE"],
+        findings={"ANALYSIS_FAILED": failed,
+                  "VT_SCAN_UNAVAILABLE": Finding(
+                      "VT_SCAN_UNAVAILABLE", Severity.LOW, "vt gap")},
+    )
+    card = format_reply(result)
+    assert km.VERDICT_LABEL_UNAVAILABLE_EN in card       # "COULD NOT CHECK ..."
+    assert km.SERVICE_UNAVAILABLE_EN in card             # "I am busy ... try again"
+    assert km.VERDICT_LABEL_EN["SUSPICIOUS"] not in card  # NOT "BE CAREFUL"
+
+
+def test_real_danger_before_failure_still_warns():
+    """Fail-closed must survive: a CRITICAL found before the agent died still
+    renders as DANGEROUS, never softened into the 'could not check' message."""
+    result = FinalVerdict(
+        verdict="DANGEROUS", reason="It is actually a program.",
+        next_step="Delete it.",
+        evidence_codes=["TYPE_DISGUISED_EXECUTABLE", "ANALYSIS_FAILED"],
+        findings={
+            "TYPE_DISGUISED_EXECUTABLE": Finding(
+                "TYPE_DISGUISED_EXECUTABLE", Severity.CRITICAL, "a program"),
+            "ANALYSIS_FAILED": Finding("ANALYSIS_FAILED", Severity.HIGH, "failed"),
+        },
+    )
+    card = format_reply(result)
+    assert "🔴" in card
+    assert km.VERDICT_LABEL_UNAVAILABLE_EN not in card    # not the failure message
+
+
 def test_card_uses_carried_findings_not_thread_local():
     """Regression for the cross-thread bug: the bot formats the reply on a
     different thread than the analysis ran on, so the thread-local evidence

@@ -45,9 +45,24 @@ EXPECTED_TYPES: dict[str, set[str]] = {
     ".exe":  {"windows_executable"},
     ".scr":  {"windows_executable"},
     ".msi":  {"ole_legacy_office", "windows_executable"},
+    # Plain-text formats carry no magic signature, so their content must read
+    # as "unknown". Anything with a real binary signature under one of these
+    # names is a disguise (e.g. a Windows executable renamed evil.md) and is
+    # flagged below rather than passed off as a harmless text file.
+    ".txt":  {"unknown"},
+    ".md":   {"unknown"},
+    ".csv":  {"unknown"},
+    ".log":  {"unknown"},
+    ".text": {"unknown"},
 }
 
 EXECUTABLE_FAMILIES = {"windows_executable", "linux_executable"}
+
+# Extensions whose only legitimate content is unsignatured plain text. Derived
+# from the table above so the two never drift. A file that verifies as one of
+# these is inert (it cannot execute and carries no macro/script container), so
+# a VirusTotal malware-binary lookup is not applicable to it.
+PLAIN_TEXT_EXT = {ext for ext, types in EXPECTED_TYPES.items() if types == {"unknown"}}
 
 
 @dataclass

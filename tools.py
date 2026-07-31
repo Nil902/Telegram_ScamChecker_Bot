@@ -9,7 +9,7 @@ from crewai.tools import tool
 import evidence
 from models import Finding, Severity
 from rules import check_filename
-from magic import verify_file_type as _verify_file_type
+from magic import verify_file_type as _verify_file_type, PLAIN_TEXT_EXT
 from apk import analyze_apk as _analyze_apk
 from links import analyze_text as _analyze_links
 from download import download_to_temp, cleanup
@@ -323,6 +323,20 @@ def scan_with_virustotal(file_path: str) -> str:
     guard = _needs_download_response("scan_with_virustotal", file_path)
     if guard is not None:
         return guard
+
+    # VirusTotal identifies known malware *binaries* by hash; it cannot vouch
+    # for an inert plain-text file, and most such files are unknown to it. Once
+    # verify_file_type has POSITIVELY confirmed the contents are text (real
+    # type "unknown", not a binary disguised under a .md/.txt name — which is
+    # already flagged CRITICAL by then), a VT miss is not a coverage gap, so we
+    # skip it rather than record a misleading VT_SCAN_UNAVAILABLE.
+    ext = os.path.splitext(file_path)[1].lower()
+    if ext in PLAIN_TEXT_EXT and last_real_type() == "unknown":
+        return json.dumps({
+            "skipped": "VirusTotal not applicable to a verified plain-text file",
+            "known_to_virustotal": None,
+            "findings": [],
+        }, indent=2)
 
     sha256, size = _digests().get(file_path, ("", 0))
     if not sha256:

@@ -306,7 +306,7 @@ that lives entirely in conversation, are outside what static parsing can see.
 ## Testing & translation review
 
 ```bash
-python -m pytest test/ -q      # 154 tests
+python -m pytest test/ -q      # 159 tests
 python review_khmer.py         # dump all Khmer strings for a native speaker
 ```
 

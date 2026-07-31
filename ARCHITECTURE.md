@@ -6,6 +6,30 @@ function does** — in plain language.
 
 ---
 
+## In one minute
+
+**What it is:** a Telegram bot. A person forwards a suspicious **file**, or a
+**message with a link**, and the bot replies — in Khmer and English — whether it
+looks 🟢 safe, 🟡 suspicious, or 🔴 dangerous, and *why*.
+
+**How it works, in four steps:**
+
+1. **Someone sends a file or a link.** (`bot.py`)
+2. **Real code inspects it — never the AI.** It reads the filename, the file's
+   actual bytes, an Android app's permissions, or a link's structure, and writes
+   down each concrete problem it finds (a *"finding"*). Nothing is ever opened or
+   run. (`rules.py`, `magic.py`, `apk.py`, `links.py`, `virustotal.py`)
+3. **The worst finding decides the verdict** — one CRITICAL → 🔴, a HIGH/MEDIUM
+   → 🟡, nothing → 🟢. The AI cannot change this. (`evidence.py`)
+4. **The AI only writes the explanation** in simple words, and only about
+   problems the code actually found. The reply is sent back. (`agent.py`,
+   `formatter.py`)
+
+The **link** check uses no AI at all. The **file** check uses the AI only to
+pick *which* quick checks to run and to phrase the answer — not to judge.
+
+---
+
 ## 1. The one idea to remember
 
 > **Deterministic Python finds the problems. The AI only explains them.**
@@ -57,7 +81,8 @@ DANGEROUS. (`evidence.py: derive_verdict`)
    2 download_file         (only if needed)          │
    3 verify_file_type      (magic bytes)             │
    4 inspect_apk           (manifest)                │
-   5 scan_with_virustotal  (hash lookup)             │
+   5 scan_with_virustotal  (hash lookup; skipped     │
+     for a file verified as plain text)              │
         │                                             │
   evidence.note_coverage()                           │
   → UNKNOWN_FILE_TYPE (LOW) if nothing fired         │
@@ -105,10 +130,12 @@ unexamined file say so out loud.
 back the reply.
 - `main()` — start the bot; register the `/start`, `/help`, document, and text
   handlers plus the global error handler; begin polling Telegram.
-- `start()` / `help_command()` — both reply with the same full message
-  (greeting + victim-support guidance), built by `_full_message()` so the two
-  commands can never drift apart. Every handler drops updates with no
-  `.message` (edited messages, channel posts) before touching it.
+- `start()` — replies with the full message: greeting + victim-support guidance
+  (`_full_message()`). `help_command()` — replies with the victim-support
+  guidance **only**, dropping the greeting intro so someone in a hurry gets
+  straight to the recovery steps. Both reuse `_HELP_HEADER` + `_help_message()`
+  so their shared text can never drift apart. Every handler drops updates with
+  no `.message` (edited messages, channel posts) before touching it.
 - `handle_document()` — a file arrived: guard the 20 MB limit, get its Telegram
   URL, run `inspect_file` off the event loop, send the formatted reply.
 - `handle_text()` — a message arrived: if it has no link, reply with the
@@ -118,7 +145,7 @@ back the reply.
   best-effort tells the user "something went wrong", guarded so a failing
   notice cannot mask the original error.
 - `_full_message()` — the greeting (`START_INTRO`) followed by the recovery
-  help, shared by `/start` and `/help`.
+  help; used by `/start`. `/help` sends just the recovery help.
 - `_help_message()` — build the bilingual recovery text (reassure → call bank →
   keep evidence → report → no false promise).
 - `_hotline_lines()` — build the "• Bank: number" lines from the reference file
@@ -195,6 +222,12 @@ error.
 - Fails closed: a missing API key, timeout, rate limit, bad key, unknown hash
   or HTTP error all record `VT_SCAN_UNAVAILABLE` (LOW). There is no code path
   that returns silently, because silence becomes SAFE downstream.
+- **Not applicable to plain text:** VirusTotal detects malware *binaries* by
+  hash. When `verify_file_type` has confirmed a file is inert plain text
+  (`.txt`/`.md`/`.csv`/`.log`/`.text`, real type `unknown`), the scan is
+  skipped entirely rather than recording a misleading `VT_SCAN_UNAVAILABLE`.
+  A binary disguised under such a name has a real signature, so it does *not*
+  qualify — it is already flagged CRITICAL by `verify_file_type`. (`tools.py`)
 - `class VirusTotalResult` — findings + detection stats + skip reason.
 
 **`magic.py`** — magic-byte type check (catches disguised files).
@@ -202,7 +235,12 @@ error.
 - `refine_zip_container()` — a ZIP could be an APK, an Office doc, or a plain
   archive; look at the entry names to tell which.
 - `verify_file_type()` — compare real type vs claimed extension; flag a program
-  wearing a document/image name, or an APK hidden under a `.jpg`/`.pdf`.
+  wearing a document/image name, or an APK hidden under a `.jpg`/`.pdf`. Plain-
+  text extensions must read as unsignatured text, so a binary renamed
+  `evil.md`/`evil.txt` is caught as a disguised executable too.
+- `EXPECTED_TYPES` — what each extension is allowed to actually be. Plain-text
+  types map to `{"unknown"}` (no signature); `PLAIN_TEXT_EXT` is derived from it
+  and drives both coverage and the VirusTotal skip.
 - `class TypeCheckResult` — result: claimed ext, real type, mismatch, findings.
 
 **`apk.py`** — static AndroidManifest analysis. **Never runs the app.**
@@ -231,7 +269,10 @@ can be checked at once without mixing).
   nothing fired **and** no extension rule, magic-byte signature or APK check
   understood the file. Returns immediately if any substantive finding exists,
   so it can never outrank or mask a real warning.
-- `is_covered()` — does any deterministic check understand this file type?
+- `is_covered()` — does any deterministic check understand this file type? True
+  for known extensions (executables, archives, Office docs, images, and plain
+  text like `.txt`/`.md`/`.csv`), or when the magic-byte read identified the
+  contents. So an ordinary `.md` is treated as checked, not "unknown type".
 - `has_substantive_finding()` — is anything recorded beyond a
   we-could-not-check note?
 - `UNVERIFIED_CODES` — `{UNKNOWN_FILE_TYPE, VT_SCAN_UNAVAILABLE}`. Findings
@@ -334,11 +375,11 @@ native speaker to check, and flag any finding code missing a translation.
 **`data/cambodian_apps.yaml`** — reference data: real bank package names,
 official domains, brand keywords, and (UNVERIFIED) hotlines.
 
-**`data/eval_set.yaml`** — 44 labelled samples used by `evaluate.py`.
+**`data/eval_set.yaml`** — 56 labelled samples used by `evaluate.py`.
 
 **`fixtures/`** — real sample files (benign photos/PDFs and disguised files).
 
-**`test/`** — unit and integration tests (73 total).
+**`test/`** — unit and integration tests (159 total).
 
 ---
 
@@ -363,7 +404,7 @@ finding code guarantees that, costs no API calls, and adds no latency. Coverage
 is checked automatically. (`strings_km.py`, `review_khmer.py`)
 
 **Q: How accurate is it?**
-On the 44-sample offline set: **43/44 (97.7%)**, **0 false positives**, **0
+On the 56-sample offline set: **55/56 (98.2%)**, **0 false positives**, **0
 dangerous-rated-SAFE**. The one miss is a deliberately included limitation: a
 pure-text OTP script with no link for the parser to see.
 
@@ -381,7 +422,7 @@ already conclusive), which saves time and bandwidth.
 ## 6. How to run it (for a live demo)
 
 ```bash
-python -m pytest test/ -q          # 73 tests pass
+python -m pytest test/ -q          # 159 tests pass
 python evaluate.py --no-agent      # offline accuracy run (no key, no network)
 python analyze_logs.py             # the metrics report
 python review_khmer.py             # every Khmer string + coverage check

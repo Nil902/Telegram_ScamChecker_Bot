@@ -101,6 +101,24 @@ def _next_move_block(codes: list[str], recorded: dict | None) -> str:
     return block + "\n\n"
 
 
+def _is_service_failure(result: FinalVerdict) -> bool:
+    """True when the reply is driven by the analysis failing to RUN — the AI
+    was rate-limited, timed out, or returned nothing — rather than by a real
+    detection.
+
+    In that case the file was not judged suspicious; we simply could not check
+    it, so the reply says exactly that instead of "Be careful". Strict: the
+    moment any real detection exists (anything beyond ANALYSIS_FAILED and the
+    LOW coverage-gap notes), this is False and the real warning is shown, so a
+    genuine danger found before the failure is never softened.
+    """
+    recorded = result.findings or {}
+    if "ANALYSIS_FAILED" not in recorded:
+        return False
+    substantive = set(recorded) - evidence.UNVERIFIED_CODES
+    return substantive == {"ANALYSIS_FAILED"}
+
+
 def _is_unverified(result: FinalVerdict) -> bool:
     """True when the ONLY thing recorded was 'no rule covers this type'.
 
@@ -119,9 +137,18 @@ def _is_unverified(result: FinalVerdict) -> bool:
 
 def format_reply(result: FinalVerdict) -> str:
     """The full bilingual message sent to the user."""
-    unverified = _is_unverified(result)
+    # A run that could not complete (rate-limit / empty AI response) is not a
+    # verdict about the file, so it gets its own message ahead of everything
+    # else — never the "Be careful" SUSPICIOUS card.
+    service_failure = _is_service_failure(result)
+    unverified = not service_failure and _is_unverified(result)
 
-    if unverified:
+    if service_failure:
+        label_km = km.VERDICT_LABEL_UNAVAILABLE
+        label_en = km.VERDICT_LABEL_UNAVAILABLE_EN
+        step_km = km.NEXT_STEP_UNAVAILABLE
+        step_en = km.NEXT_STEP_UNAVAILABLE_EN
+    elif unverified:
         label_km = km.VERDICT_LABEL_UNVERIFIED
         label_en = km.VERDICT_LABEL_UNVERIFIED_EN
         step_km = km.NEXT_STEP_UNVERIFIED
@@ -131,6 +158,21 @@ def format_reply(result: FinalVerdict) -> str:
         label_en = km.VERDICT_LABEL_EN.get(result.verdict, result.verdict)
         step_km = km.NEXT_STEP.get(result.verdict, "")
         step_en = km.NEXT_STEP_EN.get(result.verdict, "")
+
+    # A service failure speaks for itself; skip the finding-derived reason,
+    # the "what they'll do next" block and any LLM suggestions.
+    if service_failure:
+        return (
+            f"{label_km} / {label_en}\n"
+            f"\n"
+            f"{km.SERVICE_UNAVAILABLE}\n"
+            f"\n"
+            f"👉 {step_km}\n"
+            f"\n"
+            f"─────────────\n"
+            f"{km.SERVICE_UNAVAILABLE_EN}\n"
+            f"{step_en}"
+        )
 
     reason_km = _khmer_reason(result.evidence_codes, result.findings)
 
