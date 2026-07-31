@@ -34,6 +34,11 @@ NO_LINK_REPLY = (
     "I can check a file or a link for you. Please send me a file, or a "
     "message that contains a link, and I will check it."
 )
+
+TOO_LARGE_REPLY = (
+    f"ឯកសារនេះមានទំហំធំពេក ខ្ញុំមិនអាចពិនិត្យវាបានទេ (កំណត់ត្រឹម {MAX_TELEGRAM_FILE_MB} MB)។\n"
+    f"That file is too large for me to check (limit {MAX_TELEGRAM_FILE_MB} MB)."
+)
  
  
  
@@ -190,10 +195,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
  
     # --- guard: too large for the Bot API to fetch ---
     if doc.file_size and doc.file_size > MAX_TELEGRAM_FILE_MB * 1024 * 1024:
-        await update.message.reply_text(
-            f"That file is too large for me to check "
-            f"(limit {MAX_TELEGRAM_FILE_MB} MB)."
-        )
+        await update.message.reply_text(TOO_LARGE_REPLY)
         return
  
     notice = await update.message.reply_text("Checking... please wait a moment.")
