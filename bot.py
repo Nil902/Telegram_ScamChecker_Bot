@@ -145,7 +145,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.message is None:
         return
-    await update.message.reply_text(_full_message())
+    # Just the scam-recovery help, without the /start greeting intro.
+    await update.message.reply_text(f"{_HELP_HEADER}\n{_help_message()}")
 
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
