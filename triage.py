@@ -225,4 +225,7 @@ def triage(metadata: dict, call_llm=None) -> list[Finding]:
 
 def _default_llm(prompt: str) -> str:
     from agent import llm            # imported lazily; keeps triage testable
-    return str(llm.call(prompt))
+    # crewai's LLM.call expects a list of message dicts, not a bare string;
+    # passing a string makes LiteLLM iterate it character-by-character and
+    # crash with "'str' object has no attribute 'get'".
+    return str(llm.call([{"role": "user", "content": prompt}]))

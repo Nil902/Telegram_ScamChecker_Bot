@@ -53,8 +53,15 @@ BUNDLE_EXT = {".apkm", ".xapk", ".apks"}
 # Documents that can embed scripts or launch actions.
 DOCUMENT_EXT = {".pdf", ".docx", ".xlsx", ".pptx", ".rtf", ".doc", ".xls"}
 
-# Extensions a victim reads as harmless.
-SAFE_LOOKING_EXT = {".pdf", ".jpg", ".jpeg", ".png", ".docx", ".xlsx", ".txt", ".mp4"}
+# Extensions a victim reads as harmless. Includes plain-text formats
+# (.md/.csv/.log/.text) alongside .txt so a readable text file counts as a
+# checked, known type rather than triggering UNKNOWN_FILE_TYPE — and so they
+# are recognised as the harmless-looking half of a double-extension disguise
+# (e.g. notes.md.exe).
+SAFE_LOOKING_EXT = {
+    ".pdf", ".jpg", ".jpeg", ".png", ".docx", ".xlsx", ".mp4",
+    ".txt", ".md", ".csv", ".log", ".text",
+}
 
 # Unicode direction-control characters. Inserted mid-filename, they make
 # "photo\u202Egpj.apk" render on screen as "photoapk.jpg".

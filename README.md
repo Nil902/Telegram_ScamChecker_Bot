@@ -198,9 +198,11 @@ Then message the bot on Telegram:
 - **Send a message with a link** → it checks the link (never opens it).
 - **Send a message with no link** → a calm, bilingual nudge to send a file or a
   link, instead of a curt refusal.
-- **`/start` or `/help`** → both show the same message: the greeting plus calm,
-  bilingual guidance for someone who has *already* been scammed (call your bank
-  now, keep evidence, report to police / Anti-Cyber Crime Department). It never
+- **`/start`** → the greeting (how to use the bot) followed by calm, bilingual
+  guidance for someone who has *already* been scammed (call your bank now, keep
+  evidence, report to police / Anti-Cyber Crime Department).
+- **`/help`** → the same already-been-scammed guidance **without** the greeting
+  intro, so someone in a hurry gets straight to the recovery steps. It never
   promises the money can be recovered.
 
 Any error a handler does not catch itself is caught by a global error handler,
@@ -214,9 +216,20 @@ with silence.
 
 ---
 
+## Deploying 24/7
+
+The bot uses Telegram **long polling**, so it needs no domain, HTTPS cert, or
+open inbound ports — just an always-on Linux host running `python bot.py` under
+a process supervisor (e.g. a `systemd` service with `Restart=always`). Any small
+VM works, including a free-tier one; the only requirement is Python 3.12 and the
+same `.env` used locally. Because it polls, **run only one instance at a time** —
+a second poller is rejected by Telegram with a 409 conflict.
+
+---
+
 ## Evaluating the system
 
-The evaluation set (`data/eval_set.yaml`) has 44 samples whose labels are
+The evaluation set (`data/eval_set.yaml`) has 56 samples whose labels are
 honest human ground truth, not a copy of the tool's output.
 
 **Offline, deterministic core (no LLM, no network):**
@@ -240,10 +253,10 @@ rate-limit errors get one automatic retry.
 ### Latest deterministic results (`--no-agent`)
 
 ```
-accuracy: 43/44 (97.7%)
-false positives:          0/16
-DANGEROUS rated SAFE:     0/20        ← the worst error class; none
-per-class F1:  SAFE 0.97 · SUSPICIOUS 0.93 · DANGEROUS 1.00
+accuracy: 55/56 (98.2%)
+false positives:          0/19
+DANGEROUS rated SAFE:     0/27        ← the worst error class; none
+per-class F1:  SAFE 0.97 · SUSPICIOUS 0.95 · DANGEROUS 1.00
 ```
 
 The single mismatch is a **deliberate known limitation**: a pure-text OTP
@@ -279,6 +292,12 @@ control + SMS/screen capture), overlay-attack signature, dangerous individual
 permissions, bank-package impersonation and typosquats, and genuine
 remote-access tools (AnyDesk/TeamViewer) used in live phone scams.
 
+**Recognised benign types:** common readable formats — images, PDFs, Office
+documents, and plain text (`.txt`, `.md`, `.csv`, `.log`, `.text`) — count as a
+*known, checked* type. A file whose type nothing understands instead records the
+LOW `UNKNOWN_FILE_TYPE` note and is shown as **"not fully checked"** rather than
+a confident green (see [the design principle](#nothing-found-is-not-the-same-as-nothing-to-find)).
+
 **Known limitations:** pure-text lies with no link, and social-engineering
 that lives entirely in conversation, are outside what static parsing can see.
 
@@ -287,7 +306,7 @@ that lives entirely in conversation, are outside what static parsing can see.
 ## Testing & translation review
 
 ```bash
-python -m pytest test/ -q      # 73 tests
+python -m pytest test/ -q      # 154 tests
 python review_khmer.py         # dump all Khmer strings for a native speaker
 ```
 
